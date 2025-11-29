@@ -3964,7 +3964,7 @@ function HomeScreen({ navigation, route }) {
             </View>
             <View style={stylesHome.mainContent}>
               <View style={stylesHome.heroBlock}>
-                <Text style={stylesHome.appTitle}>AI Ching Insights</Text>
+                <Text style={stylesHome.appTitle}>I Ching Insights AI</Text>
                 <GlowingHexagon />
                 <Text style={stylesHome.subtitle}>
                   The oracle awaits with quiet truths and timeless wisdom
@@ -6179,7 +6179,7 @@ function PremiumScreen({ navigation }) {
               <View style={stylesPremium.noticeCard}>
                 <Ionicons name="sparkles" size={18} color={palette.goldDeep} />
                 <Text style={stylesPremium.noticeText}>
-                  Thank you for supporting AI Ching Insights. Enjoy every premium feature.
+                  Thank you for supporting I Ching Insights AI. Enjoy every premium feature.
                 </Text>
               </View>
             ) : (
@@ -6393,7 +6393,7 @@ function SettingsScreen({ navigation }) {
   const handleShareApp = useCallback(async () => {
     try {
       await Share.share({
-        message: "Explore AI Ching Insights for reflective guidance and journaling. Download now!",
+        message: "Explore I Ching Insights AI for reflective guidance and journaling. Download now!",
       });
     } catch (error) {
       Alert.alert("Share failed", error?.message || "Please try again.");
@@ -6414,7 +6414,7 @@ function SettingsScreen({ navigation }) {
       Alert.alert("Feedback", "Please share a few words before submitting.");
       return;
     }
-    const subject = encodeURIComponent("AI Ching Insights Feedback");
+    const subject = encodeURIComponent("I Ching Insights AI Feedback");
     const body = encodeURIComponent(trimmed);
     const mailto = `mailto:i.ching.insights64@gmail.com?subject=${subject}&body=${body}`;
     try {
