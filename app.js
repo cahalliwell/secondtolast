@@ -28,6 +28,7 @@ import {
   Share,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   CommonActions,
   DefaultTheme,
@@ -184,6 +185,28 @@ const theme = {
   radius: 22,
   space: (n) => 8 * n,
 };
+
+const GUIDANCE_STORAGE_KEYS = {
+  home: "guidance_seen_home",
+  question: "guidance_seen_question",
+  cast: "guidance_seen_cast",
+  primary: "guidance_seen_primary",
+  resulting: "guidance_seen_resulting",
+  journal: "guidance_seen_journal",
+  library: "guidance_seen_library",
+  insights: "guidance_seen_insights",
+};
+
+async function checkGuidanceSeen(key) {
+  if (!key) return false;
+  try {
+    const asyncValue = await AsyncStorage.getItem(key);
+    return asyncValue === "true";
+  } catch (error) {
+    console.log("Guidance flag read error:", error?.message || error);
+    return false;
+  }
+}
 
 const fonts = {
   title: "Marcellus_400Regular",
@@ -1459,6 +1482,7 @@ function InsightsOverviewScreen() {
   const { isPremium } = useAuth();
   const premiumMember = Boolean(isPremium);
   const { premiumPriceString } = useRevenueCat();
+  const { openHelp, maybeShowGuidance } = useGuidance();
   const {
     data: summary,
     loading: summaryLoading,
@@ -1541,6 +1565,12 @@ function InsightsOverviewScreen() {
     refetchTopCasts,
     refetchWeekly,
   ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.insights, GUIDANCE_STORAGE_KEYS.insights);
+    }, [maybeShowGuidance])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -1646,16 +1676,21 @@ function InsightsOverviewScreen() {
         style={stylesInsights.gradient}
       >
         <ScrollView
-          contentContainerStyle={[
-            stylesInsights.container,
-            { paddingBottom: theme.space(6) },
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={stylesInsights.screenTitle}>Insight Overview</Text>
-          <Text style={stylesInsights.screenSubtitle}>
-            A reflective glance at your journey with the I Ching.
-          </Text>
+        contentContainerStyle={[
+          stylesInsights.container,
+          { paddingBottom: theme.space(6) },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+          <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.insights)} />
+          <View style={stylesInsights.headerRow}>
+            <View style={{ flex: 1, marginLeft: theme.space(1), alignItems: "center" }}>
+              <Text style={stylesInsights.screenTitle}>Insight Overview</Text>
+              <Text style={stylesInsights.screenSubtitle}>
+                A reflective glance at your journey with the I Ching.
+              </Text>
+            </View>
+          </View>
           <UpgradeCallout
             title="Premium analytics"
             description={
@@ -1684,10 +1719,15 @@ function InsightsOverviewScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={stylesInsights.screenTitle}>Insight Overview</Text>
-        <Text style={stylesInsights.screenSubtitle}>
-          A reflective glance at your journey with the I Ching.
-        </Text>
+        <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.insights)} />
+        <View style={stylesInsights.headerRow}>
+          <View style={{ flex: 1, marginLeft: theme.space(1), alignItems: "center" }}>
+            <Text style={stylesInsights.screenTitle}>Insight Overview</Text>
+            <Text style={stylesInsights.screenSubtitle}>
+              A reflective glance at your journey with the I Ching.
+            </Text>
+          </View>
+        </View>
         {errorMessage ? <Text style={stylesInsights.errorText}>{errorMessage}</Text> : null}
 
         <View style={stylesInsights.summaryGrid}>
@@ -1789,6 +1829,13 @@ const stylesInsights = StyleSheet.create({
   container: {
     padding: theme.space(3),
     paddingTop: theme.space(3) + screenTopPadding,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.space(1.5),
+    position: "relative",
   },
   screenTitle: {
     fontFamily: fonts.title,
@@ -2122,6 +2169,213 @@ function fullChangingLineSummaries(hex) {
     .filter(Boolean);
 }
 
+const safeParseJSON = (value, fallback = {}) => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    console.log("JSON parse error:", error?.message || error);
+    return fallback;
+  }
+};
+
+const GUIDANCE_CARD_CONTENT = {
+  home: [
+    {
+      key: "home",
+      title: "Home",
+      paragraphs: [
+        "Tap the question mark anytime you want help.",
+        "Here you'll find clear explanations of how casting works, what your readings mean, and how to navigate the app.",
+        "Perfect for newcomers or anyone wanting a quick refresher.",
+      ],
+    },
+    {
+      key: "homeQuestion",
+      title: "Ask your question",
+      paragraphs: [
+        "Begin by taking a moment to settle your mind. Approach the I Ching with sincere and respectful intention.",
+        "Hold your question gently in your thoughts and allow it to form clearly. When you feel ready, enter your question into the text box and tap ‘Submit’.",
+      ],
+    },
+  ],
+  cast: [
+    {
+      key: "cast",
+      title: "Casting",
+      paragraphs: [
+        "Cast the I Ching by tapping six times. Each tap forms one line of your hexagram.",
+        "Black lines represent your current situation or energy. Gold lines show changing lines — shifts or future influences.",
+        "Your cast reveals a Primary Hexagram, and if you have changing lines, a Resulting Hexagram as well.",
+        "Upgrade for access to Manual Casting.",
+      ],
+    },
+  ],
+  primary: [
+    {
+      key: "primary",
+      title: "Primary Hexagram",
+      paragraphs: [
+        "The Primary Hexagram reflects your present moment — the themes, challenges, or wisdom surrounding your question right now.",
+        "Tap the hexagram to explore its meaning.",
+        "If your cast includes any changing lines, the I Ching will also generate a Resulting Hexagram.",
+      ],
+    },
+  ],
+  resulting: [
+    {
+      key: "resulting",
+      title: "Resulting Hexagram",
+      paragraphs: [
+        "The Resulting Hexagram shows where things may be headed if the changing lines unfold.",
+        "It offers guidance based on movement and transformation.",
+        "Tap the hexagram to read the interpretation. When you're ready, tap ‘Journal’ to save your insights.",
+      ],
+    },
+  ],
+  journal: [
+    {
+      key: "journal",
+      title: "Journal",
+      paragraphs: [
+        "Your journal keeps all your readings in one place.",
+        "Revisit past casts, follow your progress, and record personal notes or reflections.",
+        "Upgrade for AI Ching to provide personalised interpretations and summaries tailored to your question and situation.",
+      ],
+    },
+  ],
+  library: [
+    {
+      key: "library",
+      title: "Library",
+      paragraphs: [
+        "Explore all 64 hexagrams at any time.",
+        "Scroll through the list and tap any hexagram to read its core themes, wisdom, and teachings.",
+        "The library is ideal for learning and deepening your understanding between readings.",
+      ],
+    },
+  ],
+  insights: [
+    {
+      key: "insights",
+      title: "Insights",
+      paragraphs: [
+        "Track your reading streaks, activity, and most drawn hexagrams at a glance.",
+        "Use the charts to spot patterns and reflect on your journey over time.",
+        "Premium members unlock deeper analytics and AI-powered context for each milestone.",
+      ],
+    },
+  ],
+};
+
+const GuidanceContext = createContext(null);
+
+function GuidanceProvider({ children }) {
+  const [visible, setVisible] = useState(false);
+  const [activeCards, setActiveCards] = useState([]);
+  const [activeTab, setActiveTab] = useState("Guidance");
+  const [pagerIndex, setPagerIndex] = useState(0);
+  const [seenFlags, setSeenFlags] = useState({});
+
+  const markGuidanceSeen = useCallback(async (key) => {
+    if (!key) return;
+    setSeenFlags((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+    try {
+      await AsyncStorage.setItem(key, "true");
+    } catch (error) {
+      console.log("AsyncStorage persist error:", error?.message || error);
+    }
+  }, []);
+
+  const hasSeenGuidance = useCallback(
+    async (key) => {
+      if (!key) return false;
+      if (seenFlags[key]) return true;
+      const seen = await checkGuidanceSeen(key);
+      if (seen) {
+        setSeenFlags((prev) => ({ ...prev, [key]: true }));
+      }
+      return seen;
+    },
+    [seenFlags]
+  );
+
+  const showGuidance = useCallback((cards = [], tab = "Guidance") => {
+    setActiveCards(cards);
+    setPagerIndex(0);
+    setActiveTab(tab);
+    setVisible(true);
+  }, []);
+
+  const hideGuidance = useCallback(() => {
+    setVisible(false);
+  }, []);
+
+  const maybeShowGuidance = useCallback(
+    async (cards = [], key) => {
+      if (!cards?.length || !key) return false;
+      const seen = await hasSeenGuidance(key);
+      if (seen) return false;
+      showGuidance(cards, "Guidance");
+      markGuidanceSeen(key);
+      return true;
+    },
+    [hasSeenGuidance, markGuidanceSeen, showGuidance]
+  );
+
+  const openHelp = useCallback((cards = []) => showGuidance(cards), [showGuidance]);
+
+  const value = useMemo(
+    () => ({
+      visible,
+      activeCards,
+      activeTab,
+      setActiveTab,
+      pagerIndex,
+      setPagerIndex,
+      maybeShowGuidance,
+      hideGuidance,
+      openHelp,
+      hasSeenGuidance,
+      markGuidanceSeen,
+    }),
+    [
+      activeCards,
+      activeTab,
+      hasSeenGuidance,
+      hideGuidance,
+      markGuidanceSeen,
+      maybeShowGuidance,
+      openHelp,
+      pagerIndex,
+      visible,
+    ]
+  );
+
+  return (
+    <GuidanceContext.Provider value={value}>
+      {children}
+      <GuidanceModal
+        visible={visible}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        cards={activeCards}
+        pagerIndex={pagerIndex}
+        setPagerIndex={setPagerIndex}
+        onClose={hideGuidance}
+      />
+    </GuidanceContext.Provider>
+  );
+}
+
+function useGuidance() {
+  const ctx = useContext(GuidanceContext);
+  if (!ctx) {
+    throw new Error("useGuidance must be used within a GuidanceProvider");
+  }
+  return ctx;
+}
+
 // 🗒️ Journal context
 const JournalContext = createContext();
 
@@ -2134,16 +2388,6 @@ function useAuth() {
   }
   return ctx;
 }
-
-const safeParseJSON = (value, fallback = {}) => {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value);
-  } catch (error) {
-    console.log("JSON parse error:", error?.message || error);
-    return fallback;
-  }
-};
 
 function JournalProvider({ children }) {
   const { session, authReady, isPremium } = useAuth();
@@ -2673,6 +2917,34 @@ function GoldButton({
       >
         {children}
       </Text>
+    </Pressable>
+  );
+}
+
+function HelpButton({ onPress, style }) {
+  const insets = useSafeAreaInsets();
+  const floatingStyle = useMemo(
+    () => ({
+      position: "absolute",
+      top: insets.top + 10,
+      left: 14,
+      zIndex: 999,
+    }),
+    [insets.top]
+  );
+
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      style={({ pressed }) => [
+        stylesHelp.button,
+        floatingStyle,
+        pressed && { opacity: 0.85 },
+        style,
+      ]}
+    >
+      <Ionicons name="help-circle" size={18} color={palette.goldDeep} />
     </Pressable>
   );
 }
@@ -3887,6 +4159,11 @@ function HomeScreen({ navigation, route }) {
   const { session, profile, loadingProfile, signOut, refreshProfile } = useAuth();
   const { premiumActive: premiumEntitlementActive, coreActive: coreEntitlementActive } =
     useRevenueCat();
+  const { openHelp, maybeShowGuidance, markGuidanceSeen } = useGuidance();
+  const questionCards = useMemo(
+    () => GUIDANCE_CARD_CONTENT.home.filter((card) => card.key === "homeQuestion"),
+    []
+  );
 
   const hasProfile = Boolean(profile);
   const profileEmail = hasProfile
@@ -3941,6 +4218,25 @@ function HomeScreen({ navigation, route }) {
     }
   }, [signOut]);
 
+  useFocusEffect(
+    useCallback(() => {
+      const run = async () => {
+        const displayedHome = await maybeShowGuidance(
+          GUIDANCE_CARD_CONTENT.home,
+          GUIDANCE_STORAGE_KEYS.home
+        );
+        if (displayedHome && questionCards.length) {
+          markGuidanceSeen(GUIDANCE_STORAGE_KEYS.question);
+          return;
+        }
+        if (questionCards.length) {
+          await maybeShowGuidance(questionCards, GUIDANCE_STORAGE_KEYS.question);
+        }
+      };
+      run();
+    }, [markGuidanceSeen, maybeShowGuidance, questionCards])
+  );
+
   return (
     <GradientBackground>
       <KeyboardAvoidingView
@@ -3949,6 +4245,7 @@ function HomeScreen({ navigation, route }) {
         keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
       >
         <SafeAreaView style={{ flex: 1 }}>
+          <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.home)} />
           <ScrollView
             contentContainerStyle={stylesHome.container}
             keyboardShouldPersistTaps="handled"
@@ -3964,7 +4261,7 @@ function HomeScreen({ navigation, route }) {
             </View>
             <View style={stylesHome.mainContent}>
               <View style={stylesHome.heroBlock}>
-                <Text style={stylesHome.appTitle}>AI Ching Insights</Text>
+                <Text style={stylesHome.appTitle}>I Ching Insights AI</Text>
                 <GlowingHexagon />
                 <Text style={stylesHome.subtitle}>
                   The oracle awaits with quiet truths and timeless wisdom
@@ -3986,9 +4283,11 @@ function HomeScreen({ navigation, route }) {
 
                 <GoldButton
                   full
-                  onPress={() =>
-                    navigation.navigate("Cast", { question: question?.trim() || null })
-                  }
+                  onPress={() => {
+                    const trimmedQuestion = question?.trim() || null;
+                    navigation.navigate("Cast", { question: trimmedQuestion });
+                    setQuestion("");
+                  }}
                   icon={<Ionicons name="sparkles-outline" size={18} color={palette.white} />}
                 >
                   Submit
@@ -4064,7 +4363,9 @@ const stylesHome = StyleSheet.create({
     paddingTop: theme.space(2.5) + screenTopPadding,
   },
   headerRow: {
-    alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
     paddingTop: Platform.select({
       ios: theme.space(1.5),
       android: theme.space(2),
@@ -4197,10 +4498,17 @@ function CastScreen({ route, navigation }) {
   const [all, setAll] = useState([]);
   const [lines, setLines] = useState([]);
   const [isDone, setIsDone] = useState(false);
+  const { openHelp, maybeShowGuidance } = useGuidance();
 
   useEffect(() => {
     loadHexagrams().then(setAll);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.cast, GUIDANCE_STORAGE_KEYS.cast);
+    }, [maybeShowGuidance])
+  );
 
   const handleCastLine = () => {
     if (lines.length >= 6) return;
@@ -4228,6 +4536,7 @@ function CastScreen({ route, navigation }) {
   return (
     <GradientBackground>
       <SafeAreaView style={{ flex: 1 }}>
+        <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.cast)} />
         <ScrollView
           contentContainerStyle={{
             paddingHorizontal: theme.space(2.5),
@@ -4617,6 +4926,18 @@ function ResultsScreen({ navigation, route }) {
   const [show, setShow] = useState(false);
   const [selected, setSelected] = useState(null);
   const { addEntry } = useJournal();
+  const { openHelp, maybeShowGuidance } = useGuidance();
+
+  useFocusEffect(
+    useCallback(() => {
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.primary, GUIDANCE_STORAGE_KEYS.primary);
+    }, [maybeShowGuidance])
+  );
+
+  useEffect(() => {
+    if (tab !== "Resulting" || !resulting) return;
+    maybeShowGuidance(GUIDANCE_CARD_CONTENT.resulting, GUIDANCE_STORAGE_KEYS.resulting);
+  }, [maybeShowGuidance, resulting, tab]);
 
   const openReading = (hex, lines, variant) => {
     if (!hex) return;
@@ -4654,6 +4975,13 @@ function ResultsScreen({ navigation, route }) {
   return (
     <GradientBackground>
       <SafeAreaView style={{ flex: 1 }}>
+        <HelpButton
+          onPress={() =>
+            openHelp(
+              tab === "Primary" ? GUIDANCE_CARD_CONTENT.primary : GUIDANCE_CARD_CONTENT.resulting
+            )
+          }
+        />
         <ScrollView
           contentContainerStyle={{
             paddingHorizontal: theme.space(2.5),
@@ -4661,7 +4989,9 @@ function ResultsScreen({ navigation, route }) {
             paddingTop: theme.space(2.5) + screenTopPadding,
           }}
         >
-          <Text style={stylesResults.sectionTitle}>Results</Text>
+          <View style={stylesResults.headerRow}>
+            <Text style={stylesResults.sectionTitle}>Results</Text>
+          </View>
           {question ? (
             <>
               <Text style={stylesResults.subText}>Question</Text>
@@ -4725,6 +5055,13 @@ function ResultsScreen({ navigation, route }) {
 }
 
 const stylesResults = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    marginBottom: theme.space(0.5),
+  },
   sectionTitle: {
     fontFamily: fonts.title,
     fontSize: 26,
@@ -4776,6 +5113,7 @@ function LibraryScreen() {
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
   const { width } = useWindowDimensions();
+  const { openHelp, maybeShowGuidance } = useGuidance();
 
   useEffect(() => {
     let active = true;
@@ -4797,6 +5135,12 @@ function LibraryScreen() {
     };
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.library, GUIDANCE_STORAGE_KEYS.library);
+    }, [maybeShowGuidance])
+  );
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return hexagrams;
@@ -4817,13 +5161,16 @@ function LibraryScreen() {
   return (
     <GradientBackground>
       <SafeAreaView style={{ flex: 1 }}>
+        <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.library)} />
         <View style={stylesLibrary.container}>
           <View style={stylesLibrary.content}>
-            <View style={stylesLibrary.header}>
-              <Text style={stylesLibrary.title}>Library</Text>
-              <Text style={stylesLibrary.subtitle}>
-                Explore each of the 64 hexagrams at your own pace.
-              </Text>
+            <View style={stylesLibrary.headerRow}>
+              <View style={stylesLibrary.header}>
+                <Text style={stylesLibrary.title}>Library</Text>
+                <Text style={stylesLibrary.subtitle}>
+                  Explore each of the 64 hexagrams at your own pace.
+                </Text>
+              </View>
             </View>
             <View style={stylesLibrary.searchBar}>
               <Ionicons name="search" size={18} color={palette.inkMuted} />
@@ -4890,8 +5237,16 @@ const stylesLibrary = StyleSheet.create({
   content: {
     flex: 1,
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.space(1.5),
+  },
   header: {
+    flex: 1,
     marginBottom: theme.space(3),
+    alignItems: "center",
   },
   searchBar: {
     flexDirection: "row",
@@ -4915,12 +5270,15 @@ const stylesLibrary = StyleSheet.create({
     fontFamily: fonts.title,
     fontSize: 26,
     color: palette.ink,
-    marginBottom: 6,
+    marginBottom: 10,
+    textAlign: "center",
   },
   subtitle: {
     fontFamily: fonts.body,
     fontSize: 15,
     color: palette.inkMuted,
+    lineHeight: 21,
+    textAlign: "center",
   },
   carouselWrapper: {
     flex: 1,
@@ -4962,6 +5320,7 @@ function JournalListScreen({ navigation, route }) {
   const [search, setSearch] = useState("");
   const [highlightId, setHighlightId] = useState(null);
   const listRef = useRef(null);
+  const { openHelp, maybeShowGuidance } = useGuidance();
 
   const goHome = () => {
     const tabNav = navigation.getParent();
@@ -4986,6 +5345,12 @@ function JournalListScreen({ navigation, route }) {
     }
     return undefined;
   }, [route?.params?.focusId, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.journal, GUIDANCE_STORAGE_KEYS.journal);
+    }, [maybeShowGuidance])
+  );
 
   const filtered = useMemo(() => {
     if (!search.trim()) return entries;
@@ -5044,8 +5409,11 @@ function JournalListScreen({ navigation, route }) {
   return (
     <GradientBackground>
       <SafeAreaView style={{ flex: 1 }}>
+        <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.journal)} />
         <View style={stylesJournal.container}>
-          <Text style={stylesJournal.title}>Journal</Text>
+          <View style={stylesJournal.headerRow}>
+            <Text style={stylesJournal.title}>Journal</Text>
+          </View>
           <View style={stylesJournal.searchBar}>
             <Ionicons name="search" size={18} color={palette.inkMuted} />
             <TextInput
@@ -5092,6 +5460,12 @@ const stylesJournal = StyleSheet.create({
     flex: 1,
     padding: theme.space(2.5),
     paddingTop: theme.space(2.5) + screenTopPadding,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.space(1),
   },
   title: {
     fontFamily: fonts.title,
@@ -5740,11 +6114,7 @@ const stylesDetail = StyleSheet.create({
   },
 });
 
-// 📘 Guide screen
-function GuideScreen({ navigation }) {
-  const [tab, setTab] = useState("Guidance");
-  const tabs = ["Guidance", "History", "Glossary"];
-
+function GuideTabsContent({ activeTab }) {
   const renderGuidance = () => (
     <SectionCard>
       <Text style={stylesGuide.cardTitle}>Guidance</Text>
@@ -5873,11 +6243,223 @@ function GuideScreen({ navigation }) {
     </SectionCard>
   );
 
-  const renderContent = () => {
-    if (tab === "History") return renderHistory();
-    if (tab === "Glossary") return renderGlossary();
+    if (activeTab === "History") return renderHistory();
+    if (activeTab === "Glossary") return renderGlossary();
+
     return renderGuidance();
+  }
+
+function GuidanceModal({
+  visible,
+  onClose,
+  cards = [],
+  activeTab,
+  setActiveTab,
+  pagerIndex,
+  setPagerIndex,
+}) {
+  const { width, height } = useWindowDimensions();
+  const scrollRef = useRef(null);
+  const modalMaxHeight = Math.min(height * 0.8, 720);
+  const modalWidth = Math.min(width - theme.space(4), 780);
+  const pageWidth = modalWidth - theme.space(2);
+  const hasCards = cards?.length > 0;
+  const secondaryMaxHeight = Math.min(
+    Math.max(height * 0.6, 360),
+    modalMaxHeight - theme.space(5)
+  );
+  const cardAreaHeight = Math.max(secondaryMaxHeight, 320);
+
+  const scrollToIndex = (index) => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTo({ x: pageWidth * index, animated: true });
+    setPagerIndex(index);
   };
+
+  const handleBack = () => {
+    if (!hasCards || pagerIndex <= 0) return;
+    scrollToIndex(pagerIndex - 1);
+  };
+
+  const handleNext = () => {
+    if (!hasCards || pagerIndex >= cards.length - 1) return;
+    scrollToIndex(pagerIndex + 1);
+  };
+
+  const handleDone = () => {
+    if (onClose) onClose();
+  };
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <LinearGradient
+        colors={["rgba(0,0,0,0.35)", "rgba(0,0,0,0.55)"]}
+        style={stylesGuidance.overlay}
+      >
+        <Pressable style={stylesGuidance.backdrop} onPress={onClose}>
+          <Pressable
+            style={[stylesGuidance.cardShell, { maxHeight: modalMaxHeight, width: modalWidth }]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={stylesGuidance.headerRow}>
+              <Text style={stylesGuidance.title}>Need a hand?</Text>
+              <Pressable onPress={onClose} hitSlop={10}>
+                <Ionicons name="close" size={22} color={palette.ink} />
+              </Pressable>
+            </View>
+
+            <View style={stylesGuidance.tabRow}>
+              {["Guidance", "History", "Glossary"].map((label) => {
+                const active = activeTab === label;
+                return (
+                  <Pressable
+                    key={label}
+                    onPress={() => setActiveTab(label)}
+                    style={[stylesGuidance.tabBtn, active && stylesGuidance.tabBtnActive]}
+                  >
+                    <Text style={[stylesGuidance.tabText, active && stylesGuidance.tabTextActive]}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={[stylesGuidance.bodyArea, { maxHeight: cardAreaHeight }]}>
+              {activeTab === "Guidance" ? (
+                hasCards ? (
+                  <>
+                    <View style={[stylesGuidance.pagerShell, { height: cardAreaHeight }]}>
+                      <ScrollView
+                        ref={scrollRef}
+                        horizontal
+                        pagingEnabled
+                        snapToInterval={pageWidth}
+                        decelerationRate="fast"
+                        nestedScrollEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onMomentumScrollEnd={(event) => {
+                          const index = Math.round(event.nativeEvent.contentOffset.x / pageWidth);
+                          if (index !== pagerIndex) {
+                            setPagerIndex(index);
+                          }
+                        }}
+                        scrollEventThrottle={16}
+                        style={[stylesGuidance.pager, { height: cardAreaHeight }]}
+                        contentContainerStyle={{ alignItems: "stretch" }}
+                        overScrollMode="always"
+                      >
+                        {cards.map((card) => (
+                          <View key={card.key} style={[stylesGuidance.slide, { width: pageWidth }]}>
+                            <View
+                              style={[
+                                stylesGuidance.card,
+                                {
+                                  height: cardAreaHeight - theme.space(0.5),
+                                },
+                              ]}
+                            >
+                              <ScrollView
+                                nestedScrollEnabled
+                                showsVerticalScrollIndicator
+                                scrollEventThrottle={16}
+                                keyboardShouldPersistTaps="handled"
+                                style={stylesGuidance.cardScroll}
+                                contentContainerStyle={[
+                                  stylesGuidance.cardContent,
+                                  { paddingBottom: theme.space(2) },
+                                ]}
+                                overScrollMode="always"
+                              >
+                                <Text style={stylesGuidance.cardTitle}>{card.title}</Text>
+                                {card.paragraphs?.map((text, idx) => (
+                                  <Text key={`${card.key}-${idx}`} style={stylesGuidance.cardBody}>
+                                    {text}
+                                  </Text>
+                                ))}
+                              </ScrollView>
+                            </View>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    <View style={stylesGuidance.dots}>
+                      {cards.map((card, idx) => (
+                        <View
+                          key={`${card.key}-${idx}`}
+                          style={[
+                            stylesGuidance.dot,
+                            pagerIndex === idx && stylesGuidance.dotActive,
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <View style={stylesGuidance.emptyCard}>
+                    <Text style={stylesGuidance.cardBody}>
+                      No guidance is available yet. Try another tab.
+                    </Text>
+                  </View>
+                )
+              ) : (
+                <View
+                  style={[
+                    stylesGuidance.secondaryShell,
+                    {
+                      height: cardAreaHeight,
+                      maxHeight: secondaryMaxHeight,
+                      minHeight: secondaryMaxHeight * 0.85,
+                    },
+                  ]}
+                >
+                  <ScrollView
+                    style={[stylesGuidance.secondaryScroll, { height: cardAreaHeight }]}
+                    contentContainerStyle={[
+                      stylesGuidance.secondaryContentContainer,
+                      { paddingBottom: theme.space(2) },
+                    ]}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator
+                    bounces
+                    scrollEventThrottle={16}
+                    keyboardShouldPersistTaps="handled"
+                    overScrollMode="always"
+                  >
+                    <GuideTabsContent activeTab={activeTab} />
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            {activeTab === "Guidance" && hasCards ? (
+              <View style={stylesGuidance.controls}>
+                <GoldButton kind="secondary" onPress={handleBack} disabled={pagerIndex === 0}>
+                  Back
+                </GoldButton>
+                {pagerIndex < cards.length - 1 ? (
+                  <GoldButton onPress={handleNext}>Next</GoldButton>
+                ) : (
+                  <GoldButton onPress={handleDone}>Done</GoldButton>
+                )}
+              </View>
+            ) : (
+              <View style={stylesGuidance.controls}>
+                <GoldButton onPress={handleDone}>Close</GoldButton>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </LinearGradient>
+    </Modal>
+  );
+}
+
+// 📘 Guide screen
+function GuideScreen({ navigation }) {
+  const [tab, setTab] = useState("Guidance");
+  const tabs = ["Guidance", "History", "Glossary"];
 
   return (
     <GradientBackground>
@@ -5915,12 +6497,170 @@ function GuideScreen({ navigation }) {
               );
             })}
           </View>
-          {renderContent()}
+          <GuideTabsContent activeTab={tab} />
         </ScrollView>
       </SafeAreaView>
     </GradientBackground>
   );
 }
+
+const stylesGuidance = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "center",
+    padding: theme.space(2.5),
+  },
+  backdrop: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  cardShell: {
+    backgroundColor: palette.card,
+    borderRadius: theme.radius,
+    padding: theme.space(2),
+    shadowColor: palette.goldDeep,
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+    alignSelf: "center",
+    width: "100%",
+    flexShrink: 1,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  title: {
+    fontFamily: fonts.title,
+    fontSize: 20,
+    color: palette.ink,
+  },
+  tabRow: {
+    flexDirection: "row",
+    marginTop: theme.space(1.5),
+    backgroundColor: palette.white,
+    borderRadius: theme.radius,
+    borderWidth: 1,
+    borderColor: palette.border,
+    padding: 4,
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: theme.radius,
+  },
+  tabBtnActive: {
+    backgroundColor: palette.gold,
+  },
+  tabText: {
+    fontFamily: fonts.bodyBold,
+    color: palette.inkMuted,
+  },
+  tabTextActive: {
+    color: palette.white,
+  },
+  bodyArea: {
+    marginTop: theme.space(1.25),
+    flex: 1,
+    flexShrink: 1,
+  },
+  pagerShell: {
+    marginTop: theme.space(0.5),
+    width: "100%",
+  },
+  pager: {
+    marginTop: theme.space(0.5),
+  },
+  slide: {
+    paddingVertical: theme.space(1.5),
+    paddingHorizontal: theme.space(1),
+  },
+  card: {
+    borderRadius: theme.radius,
+    borderWidth: 1,
+    borderColor: palette.border,
+    padding: theme.space(1.75),
+    backgroundColor: palette.card,
+    minHeight: 240,
+    shadowColor: palette.goldDeep,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+    overflow: "hidden",
+  },
+  cardScroll: {
+    flex: 1,
+  },
+  cardContent: {
+    paddingBottom: theme.space(1),
+  },
+  cardTitle: {
+    fontFamily: fonts.title,
+    fontSize: 20,
+    color: palette.ink,
+    marginBottom: theme.space(1),
+  },
+  cardBody: {
+    fontFamily: fonts.body,
+    fontSize: 16,
+    color: palette.ink,
+    lineHeight: 24,
+    marginTop: 8,
+  },
+  dots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: theme.space(1),
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: palette.border,
+    marginHorizontal: 4,
+  },
+  dotActive: {
+    backgroundColor: palette.goldDeep,
+  },
+  controls: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: theme.space(1.5),
+  },
+  emptyCard: {
+    marginTop: theme.space(1.5),
+    padding: theme.space(1.5),
+    borderRadius: theme.radius,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.white,
+  },
+  secondaryContent: {
+    marginTop: 0,
+    flexGrow: 0,
+  },
+  secondaryScroll: {
+    flex: 1,
+  },
+  secondaryContentContainer: {
+    paddingBottom: theme.space(2),
+    paddingHorizontal: theme.space(0.5),
+  },
+  secondaryShell: {
+    marginTop: theme.space(1.5),
+    borderRadius: theme.radius,
+    overflow: "hidden",
+    alignSelf: "stretch",
+    width: "100%",
+    flexShrink: 1,
+  },
+});
 
 const stylesGuide = StyleSheet.create({
   backButton: {
@@ -6004,6 +6744,24 @@ const stylesGuide = StyleSheet.create({
   bold: {
     fontFamily: fonts.bodyBold,
     color: palette.ink,
+  },
+});
+
+const stylesHelp = StyleSheet.create({
+  button: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: palette.gold,
+    backgroundColor: "rgba(250, 241, 210, 0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: palette.goldDeep,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
 });
 
@@ -6179,7 +6937,7 @@ function PremiumScreen({ navigation }) {
               <View style={stylesPremium.noticeCard}>
                 <Ionicons name="sparkles" size={18} color={palette.goldDeep} />
                 <Text style={stylesPremium.noticeText}>
-                  Thank you for supporting AI Ching Insights. Enjoy every premium feature.
+                  Thank you for supporting I Ching Insights AI. Enjoy every premium feature.
                 </Text>
               </View>
             ) : (
@@ -6393,7 +7151,7 @@ function SettingsScreen({ navigation }) {
   const handleShareApp = useCallback(async () => {
     try {
       await Share.share({
-        message: "Explore AI Ching Insights for reflective guidance and journaling. Download now!",
+        message: "Explore I Ching Insights AI for reflective guidance and journaling. Download now!",
       });
     } catch (error) {
       Alert.alert("Share failed", error?.message || "Please try again.");
@@ -6414,7 +7172,7 @@ function SettingsScreen({ navigation }) {
       Alert.alert("Feedback", "Please share a few words before submitting.");
       return;
     }
-    const subject = encodeURIComponent("AI Ching Insights Feedback");
+    const subject = encodeURIComponent("I Ching Insights AI Feedback");
     const body = encodeURIComponent(trimmed);
     const mailto = `mailto:i.ching.insights64@gmail.com?subject=${subject}&body=${body}`;
     try {
@@ -6513,7 +7271,9 @@ function SettingsScreen({ navigation }) {
               </Pressable>
               <View style={stylesSettings.rowDivider} />
               <Pressable
-                onPress={() => handleOpenLink("https://aichinginsights.com/privacy")}
+                onPress={() =>
+                  handleOpenLink("https://sites.google.com/view/ichinginsightspp/home")
+                }
                 style={stylesSettings.row}
               >
                 <Text style={stylesSettings.rowLabel}>Privacy Policy</Text>
@@ -6521,7 +7281,9 @@ function SettingsScreen({ navigation }) {
               </Pressable>
               <View style={stylesSettings.rowDivider} />
               <Pressable
-                onPress={() => handleOpenLink("https://aichinginsights.com/terms")}
+                onPress={() =>
+                  handleOpenLink("https://sites.google.com/view/ai-ching-insightstc/home")
+                }
                 style={stylesSettings.row}
               >
                 <Text style={stylesSettings.rowLabel}>Terms and Conditions</Text>
@@ -6921,13 +7683,15 @@ export default function App() {
     <AuthContext.Provider value={authValue}>
       <RevenueCatContext.Provider value={revenueCatValue || defaultRevenueCatState}>
         <JournalProvider>
-          <NavigationContainer ref={navigationRef} key={navigationKey} theme={navTheme}>
-            {passwordResetRequested || !session ? (
-              <AuthStackScreen passwordResetRequested={passwordResetRequested} />
-            ) : (
-              <MainTabs />
-            )}
-          </NavigationContainer>
+          <GuidanceProvider>
+            <NavigationContainer ref={navigationRef} key={navigationKey} theme={navTheme}>
+              {passwordResetRequested || !session ? (
+                <AuthStackScreen passwordResetRequested={passwordResetRequested} />
+              ) : (
+                <MainTabs />
+              )}
+            </NavigationContainer>
+          </GuidanceProvider>
         </JournalProvider>
       </RevenueCatContext.Provider>
     </AuthContext.Provider>
