@@ -6267,7 +6267,11 @@ function GuidanceModal({
                         style={[stylesGuidance.slide, { width: pageWidth }]}
                       >
                         <View style={stylesGuidance.card}>
-                          <ScrollView contentContainerStyle={{ paddingBottom: theme.space(1) }}>
+                          <ScrollView
+                            nestedScrollEnabled
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={stylesGuidance.cardContent}
+                          >
                             <Text style={stylesGuidance.cardTitle}>{card.title}</Text>
                             {card.paragraphs?.map((text, idx) => (
                               <Text key={`${card.key}-${idx}`} style={stylesGuidance.cardBody}>
@@ -6436,17 +6440,21 @@ const stylesGuidance = StyleSheet.create({
     paddingHorizontal: theme.space(1),
   },
   card: {
-    flex: 1,
     borderRadius: theme.radius,
     borderWidth: 1,
     borderColor: palette.border,
     padding: theme.space(1.75),
-    backgroundColor: palette.white,
+    backgroundColor: palette.card,
+    minHeight: 220,
+    maxHeight: 420,
     shadowColor: palette.goldDeep,
     shadowOpacity: 0.12,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
+  },
+  cardContent: {
+    paddingBottom: theme.space(1),
   },
   cardTitle: {
     fontFamily: fonts.title,
