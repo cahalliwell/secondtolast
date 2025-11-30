@@ -6266,11 +6266,8 @@ function GuidanceModal({
                         key={card.key}
                         style={[stylesGuidance.slide, { width: pageWidth }]}
                       >
-                        <LinearGradient
-                          colors={[palette.white, palette.parchmentA]}
-                          style={stylesGuidance.card}
-                        >
-                          <ScrollView>
+                        <View style={stylesGuidance.card}>
+                          <ScrollView contentContainerStyle={{ paddingBottom: theme.space(1) }}>
                             <Text style={stylesGuidance.cardTitle}>{card.title}</Text>
                             {card.paragraphs?.map((text, idx) => (
                               <Text key={`${card.key}-${idx}`} style={stylesGuidance.cardBody}>
@@ -6278,7 +6275,7 @@ function GuidanceModal({
                               </Text>
                             ))}
                           </ScrollView>
-                        </LinearGradient>
+                        </View>
                       </View>
                     ))}
                   </ScrollView>
