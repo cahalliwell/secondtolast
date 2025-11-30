@@ -6304,7 +6304,12 @@ function GuidanceModal({
                 </View>
               )
             ) : (
-              <ScrollView style={stylesGuidance.secondaryContent}>
+              <ScrollView
+                style={stylesGuidance.secondaryContent}
+                contentContainerStyle={stylesGuidance.secondaryContentContainer}
+                nestedScrollEnabled
+                showsVerticalScrollIndicator
+              >
                 <GuideTabsContent activeTab={activeTab} />
               </ScrollView>
             )}
@@ -6500,7 +6505,10 @@ const stylesGuidance = StyleSheet.create({
   },
   secondaryContent: {
     marginTop: theme.space(1.5),
-    maxHeight: 360,
+    maxHeight: 420,
+  },
+  secondaryContentContainer: {
+    paddingBottom: theme.space(2),
   },
 });
 
