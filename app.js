@@ -6305,16 +6305,22 @@ function GuidanceModal({
                 </View>
               )
             ) : (
-              <View style={[stylesGuidance.secondaryShell, { maxHeight: secondaryMaxHeight }]}>
+              <View
+                style={[
+                  stylesGuidance.secondaryShell,
+                  { maxHeight: secondaryMaxHeight, minHeight: secondaryMaxHeight * 0.8 },
+                ]}
+              >
                 <ScrollView
-                  style={stylesGuidance.secondaryContent}
+                  style={[stylesGuidance.secondaryContent, { height: secondaryMaxHeight }]}
                   contentContainerStyle={[
                     stylesGuidance.secondaryContentContainer,
-                    { minHeight: secondaryMaxHeight * 0.85 },
+                    { minHeight: secondaryMaxHeight * 0.9 },
                   ]}
                   nestedScrollEnabled
                   showsVerticalScrollIndicator
                   bounces
+                  scrollEventThrottle={16}
                 >
                   <GuideTabsContent activeTab={activeTab} />
                 </ScrollView>
@@ -6512,15 +6518,18 @@ const stylesGuidance = StyleSheet.create({
   },
   secondaryContent: {
     marginTop: 0,
-    maxHeight: 420,
+    flexGrow: 0,
   },
   secondaryContentContainer: {
     paddingBottom: theme.space(2),
+    paddingHorizontal: theme.space(0.5),
   },
   secondaryShell: {
     marginTop: theme.space(1.5),
     borderRadius: theme.radius,
     overflow: "hidden",
+    alignSelf: "stretch",
+    width: "100%",
   },
 });
 
