@@ -29,6 +29,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   CommonActions,
   DefaultTheme,
@@ -186,12 +187,26 @@ const theme = {
   space: (n) => 8 * n,
 };
 
-const GUIDANCE_SEEN_KEY = "has_seen_guidance";
+const GUIDANCE_STORAGE_KEYS = {
+  home: "guidance_seen_home",
+  question: "guidance_seen_question",
+  cast: "guidance_seen_cast",
+  primary: "guidance_seen_primary",
+  resulting: "guidance_seen_resulting",
+  journal: "guidance_seen_journal",
+  library: "guidance_seen_library",
+  insights: "guidance_seen_insights",
+};
 
-async function checkGuidanceSeen() {
+async function checkGuidanceSeen(key) {
+  if (!key) return false;
   try {
-    const stored = await SecureStore.getItemAsync(GUIDANCE_SEEN_KEY);
-    return stored === "true";
+    const secureValue = await SecureStore.getItemAsync(key);
+    if (secureValue != null) {
+      return secureValue === "true";
+    }
+    const asyncValue = await AsyncStorage.getItem(key);
+    return asyncValue === "true";
   } catch (error) {
     console.log("Guidance flag read error:", error?.message || error);
     return false;
@@ -1472,7 +1487,7 @@ function InsightsOverviewScreen() {
   const { isPremium } = useAuth();
   const premiumMember = Boolean(isPremium);
   const { premiumPriceString } = useRevenueCat();
-  const { openHelp } = useGuidance();
+  const { openHelp, maybeShowGuidance } = useGuidance();
   const {
     data: summary,
     loading: summaryLoading,
@@ -1555,6 +1570,12 @@ function InsightsOverviewScreen() {
     refetchTopCasts,
     refetchWeekly,
   ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.insights, GUIDANCE_STORAGE_KEYS.insights);
+    }, [maybeShowGuidance])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -2258,61 +2279,57 @@ function GuidanceProvider({ children }) {
   const [activeCards, setActiveCards] = useState([]);
   const [activeTab, setActiveTab] = useState("Guidance");
   const [pagerIndex, setPagerIndex] = useState(0);
-  const [persistOnClose, setPersistOnClose] = useState(false);
-  const [flagLoaded, setFlagLoaded] = useState(false);
-  const [hasSeenGuidance, setHasSeenGuidance] = useState(false);
+  const [seenFlags, setSeenFlags] = useState({});
 
-  useEffect(() => {
-    let mounted = true;
-    checkGuidanceSeen()
-      .then((seen) => {
-        if (!mounted) return;
-        setHasSeenGuidance(seen);
-      })
-      .finally(() => {
-        if (mounted) setFlagLoaded(true);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const persistGuidanceSeen = useCallback(async () => {
+  const markGuidanceSeen = useCallback(async (key) => {
+    if (!key) return;
+    setSeenFlags((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
     try {
-      await SecureStore.setItemAsync(GUIDANCE_SEEN_KEY, "true");
+      await SecureStore.setItemAsync(key, "true");
     } catch (error) {
-      console.log("Guidance flag persist error:", error?.message || error);
+      console.log("SecureStore persist error:", error?.message || error);
+    }
+    try {
+      await AsyncStorage.setItem(key, "true");
+    } catch (error) {
+      console.log("AsyncStorage persist error:", error?.message || error);
     }
   }, []);
 
-  const markGuidanceSeen = useCallback(() => {
-    if (hasSeenGuidance) return;
-    setHasSeenGuidance(true);
-    persistGuidanceSeen();
-  }, [hasSeenGuidance, persistGuidanceSeen]);
+  const hasSeenGuidance = useCallback(
+    async (key) => {
+      if (!key) return false;
+      if (seenFlags[key]) return true;
+      const seen = await checkGuidanceSeen(key);
+      if (seen) {
+        setSeenFlags((prev) => ({ ...prev, [key]: true }));
+      }
+      return seen;
+    },
+    [seenFlags]
+  );
 
-  const showGuidance = useCallback((cards = [], tab = "Guidance", persistFlag = false) => {
+  const showGuidance = useCallback((cards = [], tab = "Guidance") => {
     setActiveCards(cards);
     setPagerIndex(0);
     setActiveTab(tab);
-    setPersistOnClose(persistFlag);
     setVisible(true);
   }, []);
 
   const hideGuidance = useCallback(() => {
-    if (persistOnClose) {
-      markGuidanceSeen();
-    }
     setVisible(false);
-    setPersistOnClose(false);
-  }, [markGuidanceSeen, persistOnClose]);
+  }, []);
 
   const maybeShowGuidance = useCallback(
-    (cards = []) => {
-      if (!flagLoaded || hasSeenGuidance) return;
-      showGuidance(cards, "Guidance", true);
+    async (cards = [], key) => {
+      if (!cards?.length || !key) return false;
+      const seen = await hasSeenGuidance(key);
+      if (seen) return false;
+      showGuidance(cards, "Guidance");
+      markGuidanceSeen(key);
+      return true;
     },
-    [flagLoaded, hasSeenGuidance, showGuidance]
+    [hasSeenGuidance, markGuidanceSeen, showGuidance]
   );
 
   const openHelp = useCallback((cards = []) => showGuidance(cards), [showGuidance]);
@@ -2328,8 +2345,20 @@ function GuidanceProvider({ children }) {
       maybeShowGuidance,
       hideGuidance,
       openHelp,
+      hasSeenGuidance,
+      markGuidanceSeen,
     }),
-    [activeCards, activeTab, hideGuidance, maybeShowGuidance, openHelp, pagerIndex, visible]
+    [
+      activeCards,
+      activeTab,
+      hasSeenGuidance,
+      hideGuidance,
+      markGuidanceSeen,
+      maybeShowGuidance,
+      openHelp,
+      pagerIndex,
+      visible,
+    ]
   );
 
   return (
@@ -2902,12 +2931,24 @@ function GoldButton({
 }
 
 function HelpButton({ onPress, style }) {
+  const insets = useSafeAreaInsets();
+  const floatingStyle = useMemo(
+    () => ({
+      position: "absolute",
+      top: insets.top + 12,
+      left: 12,
+      zIndex: 50,
+    }),
+    [insets.top]
+  );
+
   return (
     <Pressable
       onPress={onPress}
       hitSlop={8}
       style={({ pressed }) => [
         stylesHelp.button,
+        floatingStyle,
         pressed && { opacity: 0.85 },
         style,
       ]}
@@ -4127,7 +4168,11 @@ function HomeScreen({ navigation, route }) {
   const { session, profile, loadingProfile, signOut, refreshProfile } = useAuth();
   const { premiumActive: premiumEntitlementActive, coreActive: coreEntitlementActive } =
     useRevenueCat();
-  const { openHelp } = useGuidance();
+  const { openHelp, maybeShowGuidance, markGuidanceSeen } = useGuidance();
+  const questionCards = useMemo(
+    () => GUIDANCE_CARD_CONTENT.home.filter((card) => card.key === "homeQuestion"),
+    []
+  );
 
   const hasProfile = Boolean(profile);
   const profileEmail = hasProfile
@@ -4181,6 +4226,25 @@ function HomeScreen({ navigation, route }) {
       Alert.alert("Logout failed", error?.message || "Please try again.");
     }
   }, [signOut]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const run = async () => {
+        const displayedHome = await maybeShowGuidance(
+          GUIDANCE_CARD_CONTENT.home,
+          GUIDANCE_STORAGE_KEYS.home
+        );
+        if (displayedHome && questionCards.length) {
+          markGuidanceSeen(GUIDANCE_STORAGE_KEYS.question);
+          return;
+        }
+        if (questionCards.length) {
+          await maybeShowGuidance(questionCards, GUIDANCE_STORAGE_KEYS.question);
+        }
+      };
+      run();
+    }, [markGuidanceSeen, maybeShowGuidance, questionCards])
+  );
 
   return (
     <GradientBackground>
@@ -4451,7 +4515,7 @@ function CastScreen({ route, navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      maybeShowGuidance(GUIDANCE_CARD_CONTENT.cast);
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.cast, GUIDANCE_STORAGE_KEYS.cast);
     }, [maybeShowGuidance])
   );
 
@@ -4878,7 +4942,18 @@ function ResultsScreen({ navigation, route }) {
   const [show, setShow] = useState(false);
   const [selected, setSelected] = useState(null);
   const { addEntry } = useJournal();
-  const { openHelp } = useGuidance();
+  const { openHelp, maybeShowGuidance } = useGuidance();
+
+  useFocusEffect(
+    useCallback(() => {
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.primary, GUIDANCE_STORAGE_KEYS.primary);
+    }, [maybeShowGuidance])
+  );
+
+  useEffect(() => {
+    if (tab !== "Resulting" || !resulting) return;
+    maybeShowGuidance(GUIDANCE_CARD_CONTENT.resulting, GUIDANCE_STORAGE_KEYS.resulting);
+  }, [maybeShowGuidance, resulting, tab]);
 
   const openReading = (hex, lines, variant) => {
     if (!hex) return;
@@ -5054,7 +5129,7 @@ function LibraryScreen() {
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
   const { width } = useWindowDimensions();
-  const { openHelp } = useGuidance();
+  const { openHelp, maybeShowGuidance } = useGuidance();
 
   useEffect(() => {
     let active = true;
@@ -5075,6 +5150,12 @@ function LibraryScreen() {
       active = false;
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.library, GUIDANCE_STORAGE_KEYS.library);
+    }, [maybeShowGuidance])
+  );
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -5252,7 +5333,7 @@ function JournalListScreen({ navigation, route }) {
   const [search, setSearch] = useState("");
   const [highlightId, setHighlightId] = useState(null);
   const listRef = useRef(null);
-  const { openHelp } = useGuidance();
+  const { openHelp, maybeShowGuidance } = useGuidance();
 
   const goHome = () => {
     const tabNav = navigation.getParent();
@@ -5277,6 +5358,12 @@ function JournalListScreen({ navigation, route }) {
     }
     return undefined;
   }, [route?.params?.focusId, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.journal, GUIDANCE_STORAGE_KEYS.journal);
+    }, [maybeShowGuidance])
+  );
 
   const filtered = useMemo(() => {
     if (!search.trim()) return entries;
