@@ -6243,8 +6243,11 @@ function GuideTabsContent({ activeTab }) {
     </SectionCard>
   );
 
-  if (activeTab === "History") return renderHistory();
-  if (activeTab === "Glossary") return renderGlossary();
+    if (activeTab === "History") return renderHistory();
+    if (activeTab === "Glossary") return renderGlossary();
+
+    return renderGuidance();
+  }
 
 function GuidanceModal({
   visible,
