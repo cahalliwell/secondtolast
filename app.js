@@ -28,6 +28,7 @@ import {
   Share,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import {
   CommonActions,
   DefaultTheme,
@@ -185,7 +186,17 @@ const theme = {
   space: (n) => 8 * n,
 };
 
-const GUIDANCE_STORAGE_KEY = "iching_insights_guidance_seen_v1";
+const GUIDANCE_SEEN_KEY = "has_seen_guidance";
+
+async function checkGuidanceSeen() {
+  try {
+    const stored = await SecureStore.getItemAsync(GUIDANCE_SEEN_KEY);
+    return stored === "true";
+  } catch (error) {
+    console.log("Guidance flag read error:", error?.message || error);
+    return false;
+  }
+}
 
 const fonts = {
   title: "Marcellus_400Regular",
@@ -1461,7 +1472,7 @@ function InsightsOverviewScreen() {
   const { isPremium } = useAuth();
   const premiumMember = Boolean(isPremium);
   const { premiumPriceString } = useRevenueCat();
-  const { openHelp, maybeShowGuidance } = useGuidance();
+  const { openHelp } = useGuidance();
   const {
     data: summary,
     loading: summaryLoading,
@@ -1501,12 +1512,6 @@ function InsightsOverviewScreen() {
 
   const [hexagrams, setHexagrams] = useState([]);
   const [errorMessage, setErrorMessage] = useState(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      maybeShowGuidance(["insights"], GUIDANCE_CARD_CONTENT.insights);
-    }, [maybeShowGuidance])
-  );
 
   useEffect(() => {
     let active = true;
@@ -2249,66 +2254,65 @@ const GUIDANCE_CARD_CONTENT = {
 const GuidanceContext = createContext(null);
 
 function GuidanceProvider({ children }) {
-  const [seenFlags, setSeenFlags] = useState({});
   const [visible, setVisible] = useState(false);
   const [activeCards, setActiveCards] = useState([]);
   const [activeTab, setActiveTab] = useState("Guidance");
   const [pagerIndex, setPagerIndex] = useState(0);
+  const [persistOnClose, setPersistOnClose] = useState(false);
+  const [flagLoaded, setFlagLoaded] = useState(false);
+  const [hasSeenGuidance, setHasSeenGuidance] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    AsyncStorage.getItem(GUIDANCE_STORAGE_KEY)
-      .then((stored) => {
+    checkGuidanceSeen()
+      .then((seen) => {
         if (!mounted) return;
-        const parsed = safeParseJSON(stored, {});
-        setSeenFlags(parsed || {});
+        setHasSeenGuidance(seen);
       })
-      .catch((error) => console.log("Guidance storage error:", error?.message || error));
+      .finally(() => {
+        if (mounted) setFlagLoaded(true);
+      });
     return () => {
       mounted = false;
     };
   }, []);
 
-  const persistSeenFlags = useCallback(async (nextFlags) => {
+  const persistGuidanceSeen = useCallback(async () => {
     try {
-      await AsyncStorage.setItem(GUIDANCE_STORAGE_KEY, JSON.stringify(nextFlags));
+      await SecureStore.setItemAsync(GUIDANCE_SEEN_KEY, "true");
     } catch (error) {
-      console.log("Guidance persist error:", error?.message || error);
+      console.log("Guidance flag persist error:", error?.message || error);
     }
   }, []);
 
-  const markSeen = useCallback(
-    (keys) => {
-      if (!Array.isArray(keys) || !keys.length) return;
-      setSeenFlags((prev) => {
-        const next = { ...prev };
-        keys.forEach((key) => {
-          next[key] = true;
-        });
-        persistSeenFlags(next);
-        return next;
-      });
-    },
-    [persistSeenFlags]
-  );
+  const markGuidanceSeen = useCallback(() => {
+    if (hasSeenGuidance) return;
+    setHasSeenGuidance(true);
+    persistGuidanceSeen();
+  }, [hasSeenGuidance, persistGuidanceSeen]);
 
-  const showGuidance = useCallback((cards = [], tab = "Guidance") => {
+  const showGuidance = useCallback((cards = [], tab = "Guidance", persistFlag = false) => {
     setActiveCards(cards);
     setPagerIndex(0);
     setActiveTab(tab);
+    setPersistOnClose(persistFlag);
     setVisible(true);
   }, []);
 
-  const hideGuidance = useCallback(() => setVisible(false), []);
+  const hideGuidance = useCallback(() => {
+    if (persistOnClose) {
+      markGuidanceSeen();
+    }
+    setVisible(false);
+    setPersistOnClose(false);
+  }, [markGuidanceSeen, persistOnClose]);
 
   const maybeShowGuidance = useCallback(
-    (keys = [], cards = []) => {
-      const pending = (keys || []).filter((key) => !seenFlags?.[key]);
-      if (!pending.length) return;
-      markSeen(pending);
-      showGuidance(cards);
+    (cards = []) => {
+      if (!flagLoaded || hasSeenGuidance) return;
+      showGuidance(cards, "Guidance", true);
     },
-    [markSeen, seenFlags, showGuidance]
+    [flagLoaded, hasSeenGuidance, showGuidance]
   );
 
   const openHelp = useCallback((cards = []) => showGuidance(cards), [showGuidance]);
@@ -4123,7 +4127,7 @@ function HomeScreen({ navigation, route }) {
   const { session, profile, loadingProfile, signOut, refreshProfile } = useAuth();
   const { premiumActive: premiumEntitlementActive, coreActive: coreEntitlementActive } =
     useRevenueCat();
-  const { openHelp, maybeShowGuidance } = useGuidance();
+  const { openHelp } = useGuidance();
 
   const hasProfile = Boolean(profile);
   const profileEmail = hasProfile
@@ -4153,12 +4157,6 @@ function HomeScreen({ navigation, route }) {
       refreshProfile();
     }
   }, [menuVisible, refreshProfile]);
-
-  useFocusEffect(
-    useCallback(() => {
-      maybeShowGuidance(["home", "homeQuestion"], GUIDANCE_CARD_CONTENT.home);
-    }, [maybeShowGuidance])
-  );
 
   const closeMenuAndNavigate = useCallback(
     (target) => {
@@ -4453,7 +4451,7 @@ function CastScreen({ route, navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      maybeShowGuidance(["cast"], GUIDANCE_CARD_CONTENT.cast);
+      maybeShowGuidance(GUIDANCE_CARD_CONTENT.cast);
     }, [maybeShowGuidance])
   );
 
@@ -4880,7 +4878,7 @@ function ResultsScreen({ navigation, route }) {
   const [show, setShow] = useState(false);
   const [selected, setSelected] = useState(null);
   const { addEntry } = useJournal();
-  const { openHelp, maybeShowGuidance } = useGuidance();
+  const { openHelp } = useGuidance();
 
   const openReading = (hex, lines, variant) => {
     if (!hex) return;
@@ -4914,18 +4912,6 @@ function ResultsScreen({ navigation, route }) {
       });
     }
   };
-
-  useFocusEffect(
-    useCallback(() => {
-      maybeShowGuidance(["resultsPrimary"], GUIDANCE_CARD_CONTENT.primary);
-    }, [maybeShowGuidance])
-  );
-
-  useEffect(() => {
-    if (tab === "Resulting") {
-      maybeShowGuidance(["resultsResulting"], GUIDANCE_CARD_CONTENT.resulting);
-    }
-  }, [maybeShowGuidance, tab]);
 
   return (
     <GradientBackground>
@@ -5068,7 +5054,7 @@ function LibraryScreen() {
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
   const { width } = useWindowDimensions();
-  const { openHelp, maybeShowGuidance } = useGuidance();
+  const { openHelp } = useGuidance();
 
   useEffect(() => {
     let active = true;
@@ -5099,12 +5085,6 @@ function LibraryScreen() {
       return name.includes(term) || number.includes(term);
     });
   }, [hexagrams, search]);
-
-  useFocusEffect(
-    useCallback(() => {
-      maybeShowGuidance(["library"], GUIDANCE_CARD_CONTENT.library);
-    }, [maybeShowGuidance])
-  );
 
   const openHexagram = (hex) => {
     if (!hex) return;
@@ -5270,7 +5250,7 @@ function JournalListScreen({ navigation, route }) {
   const [search, setSearch] = useState("");
   const [highlightId, setHighlightId] = useState(null);
   const listRef = useRef(null);
-  const { openHelp, maybeShowGuidance } = useGuidance();
+  const { openHelp } = useGuidance();
 
   const goHome = () => {
     const tabNav = navigation.getParent();
@@ -5307,12 +5287,6 @@ function JournalListScreen({ navigation, route }) {
       );
     });
   }, [entries, search]);
-
-  useFocusEffect(
-    useCallback(() => {
-      maybeShowGuidance(["journal"], GUIDANCE_CARD_CONTENT.journal);
-    }, [maybeShowGuidance])
-  );
 
   const renderItem = ({ item }) => {
     const questionText = item.question?.trim()
@@ -6293,7 +6267,7 @@ function GuidanceModal({
                         style={[stylesGuidance.slide, { width: pageWidth }]}
                       >
                         <LinearGradient
-                          colors={[palette.parchmentGold, palette.parchmentA]}
+                          colors={[palette.white, palette.parchmentA]}
                           style={stylesGuidance.card}
                         >
                           <ScrollView>
@@ -6470,6 +6444,12 @@ const stylesGuidance = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
     padding: theme.space(1.75),
+    backgroundColor: palette.white,
+    shadowColor: palette.goldDeep,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
   cardTitle: {
     fontFamily: fonts.title,
@@ -6479,10 +6459,10 @@ const stylesGuidance = StyleSheet.create({
   },
   cardBody: {
     fontFamily: fonts.body,
-    fontSize: 15,
+    fontSize: 16,
     color: palette.ink,
-    lineHeight: 22,
-    marginTop: 6,
+    lineHeight: 24,
+    marginTop: 8,
   },
   dots: {
     flexDirection: "row",
