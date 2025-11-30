@@ -5174,11 +5174,12 @@ const stylesLibrary = StyleSheet.create({
   },
   headerRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: "flex-start",
+    columnGap: theme.space(1.25),
     marginBottom: theme.space(1),
   },
   header: {
+    flex: 1,
     marginBottom: theme.space(3),
   },
   searchBar: {
@@ -5203,12 +5204,13 @@ const stylesLibrary = StyleSheet.create({
     fontFamily: fonts.title,
     fontSize: 26,
     color: palette.ink,
-    marginBottom: 6,
+    marginBottom: 10,
   },
   subtitle: {
     fontFamily: fonts.body,
     fontSize: 15,
     color: palette.inkMuted,
+    lineHeight: 21,
   },
   carouselWrapper: {
     flex: 1,
@@ -7142,7 +7144,9 @@ function SettingsScreen({ navigation }) {
               </Pressable>
               <View style={stylesSettings.rowDivider} />
               <Pressable
-                onPress={() => handleOpenLink("https://aichinginsights.com/privacy")}
+                onPress={() =>
+                  handleOpenLink("https://sites.google.com/view/ichinginsightspp/home")
+                }
                 style={stylesSettings.row}
               >
                 <Text style={stylesSettings.rowLabel}>Privacy Policy</Text>
@@ -7150,7 +7154,9 @@ function SettingsScreen({ navigation }) {
               </Pressable>
               <View style={stylesSettings.rowDivider} />
               <Pressable
-                onPress={() => handleOpenLink("https://aichinginsights.com/terms")}
+                onPress={() =>
+                  handleOpenLink("https://sites.google.com/view/ai-ching-insightstc/home")
+                }
                 style={stylesSettings.row}
               >
                 <Text style={stylesSettings.rowLabel}>Terms and Conditions</Text>
