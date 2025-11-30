@@ -6180,10 +6180,11 @@ function GuidanceModal({
   pagerIndex,
   setPagerIndex,
 }) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const scrollRef = useRef(null);
   const pageWidth = width - theme.space(6);
   const hasCards = cards?.length > 0;
+  const secondaryMaxHeight = Math.min(Math.max(height * 0.55, 320), 560);
 
   const scrollToIndex = (index) => {
     if (!scrollRef.current) return;
@@ -6304,14 +6305,20 @@ function GuidanceModal({
                 </View>
               )
             ) : (
-              <ScrollView
-                style={stylesGuidance.secondaryContent}
-                contentContainerStyle={stylesGuidance.secondaryContentContainer}
-                nestedScrollEnabled
-                showsVerticalScrollIndicator
-              >
-                <GuideTabsContent activeTab={activeTab} />
-              </ScrollView>
+              <View style={[stylesGuidance.secondaryShell, { maxHeight: secondaryMaxHeight }]}>
+                <ScrollView
+                  style={stylesGuidance.secondaryContent}
+                  contentContainerStyle={[
+                    stylesGuidance.secondaryContentContainer,
+                    { minHeight: secondaryMaxHeight * 0.85 },
+                  ]}
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator
+                  bounces
+                >
+                  <GuideTabsContent activeTab={activeTab} />
+                </ScrollView>
+              </View>
             )}
 
             {activeTab === "Guidance" && hasCards ? (
@@ -6504,11 +6511,16 @@ const stylesGuidance = StyleSheet.create({
     backgroundColor: palette.white,
   },
   secondaryContent: {
-    marginTop: theme.space(1.5),
+    marginTop: 0,
     maxHeight: 420,
   },
   secondaryContentContainer: {
     paddingBottom: theme.space(2),
+  },
+  secondaryShell: {
+    marginTop: theme.space(1.5),
+    borderRadius: theme.radius,
+    overflow: "hidden",
   },
 });
 
