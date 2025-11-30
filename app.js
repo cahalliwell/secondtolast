@@ -4230,9 +4230,11 @@ function HomeScreen({ navigation, route }) {
 
                 <GoldButton
                   full
-                  onPress={() =>
-                    navigation.navigate("Cast", { question: question?.trim() || null })
-                  }
+                  onPress={() => {
+                    const trimmedQuestion = question?.trim() || null;
+                    navigation.navigate("Cast", { question: trimmedQuestion });
+                    setQuestion("");
+                  }}
                   icon={<Ionicons name="sparkles-outline" size={18} color={palette.white} />}
                 >
                   Submit
