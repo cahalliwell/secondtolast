@@ -28,7 +28,6 @@ import {
   Share,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as SecureStore from "expo-secure-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   CommonActions,
@@ -201,10 +200,6 @@ const GUIDANCE_STORAGE_KEYS = {
 async function checkGuidanceSeen(key) {
   if (!key) return false;
   try {
-    const secureValue = await SecureStore.getItemAsync(key);
-    if (secureValue != null) {
-      return secureValue === "true";
-    }
     const asyncValue = await AsyncStorage.getItem(key);
     return asyncValue === "true";
   } catch (error) {
@@ -1687,9 +1682,9 @@ function InsightsOverviewScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+          <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.insights)} />
           <View style={stylesInsights.headerRow}>
-            <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.insights)} />
-            <View style={{ flex: 1, marginLeft: theme.space(1) }}>
+            <View style={{ flex: 1, marginLeft: theme.space(1), alignItems: "center" }}>
               <Text style={stylesInsights.screenTitle}>Insight Overview</Text>
               <Text style={stylesInsights.screenSubtitle}>
                 A reflective glance at your journey with the I Ching.
@@ -1724,9 +1719,9 @@ function InsightsOverviewScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.insights)} />
         <View style={stylesInsights.headerRow}>
-          <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.insights)} />
-          <View style={{ flex: 1, marginLeft: theme.space(1) }}>
+          <View style={{ flex: 1, marginLeft: theme.space(1), alignItems: "center" }}>
             <Text style={stylesInsights.screenTitle}>Insight Overview</Text>
             <Text style={stylesInsights.screenSubtitle}>
               A reflective glance at your journey with the I Ching.
@@ -1838,8 +1833,9 @@ const stylesInsights = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: theme.space(1),
+    justifyContent: "center",
+    marginBottom: theme.space(1.5),
+    position: "relative",
   },
   screenTitle: {
     fontFamily: fonts.title,
@@ -2284,11 +2280,6 @@ function GuidanceProvider({ children }) {
   const markGuidanceSeen = useCallback(async (key) => {
     if (!key) return;
     setSeenFlags((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
-    try {
-      await SecureStore.setItemAsync(key, "true");
-    } catch (error) {
-      console.log("SecureStore persist error:", error?.message || error);
-    }
     try {
       await AsyncStorage.setItem(key, "true");
     } catch (error) {
@@ -2935,9 +2926,9 @@ function HelpButton({ onPress, style }) {
   const floatingStyle = useMemo(
     () => ({
       position: "absolute",
-      top: insets.top + 12,
-      left: 12,
-      zIndex: 50,
+      top: insets.top + 10,
+      left: 14,
+      zIndex: 999,
     }),
     [insets.top]
   );
@@ -4254,12 +4245,12 @@ function HomeScreen({ navigation, route }) {
         keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
       >
         <SafeAreaView style={{ flex: 1 }}>
+          <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.home)} />
           <ScrollView
             contentContainerStyle={stylesHome.container}
             keyboardShouldPersistTaps="handled"
           >
             <View style={stylesHome.headerRow}>
-              <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.home)} />
               <Pressable
                 onPress={() => setMenuVisible(true)}
                 style={stylesHome.menuButton}
@@ -4374,7 +4365,7 @@ const stylesHome = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     paddingTop: Platform.select({
       ios: theme.space(1.5),
       android: theme.space(2),
@@ -4545,6 +4536,7 @@ function CastScreen({ route, navigation }) {
   return (
     <GradientBackground>
       <SafeAreaView style={{ flex: 1 }}>
+        <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.cast)} />
         <ScrollView
           contentContainerStyle={{
             paddingHorizontal: theme.space(2.5),
@@ -4552,9 +4544,6 @@ function CastScreen({ route, navigation }) {
             paddingTop: theme.space(2.5) + screenTopPadding,
           }}
         >
-          <View style={stylesCast.headerRow}>
-            <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.cast)} />
-          </View>
           <Text style={stylesCast.sectionTitle}>Casting</Text>
           {question ? (
             <>
@@ -4810,11 +4799,6 @@ function ManualCastingScreen({ route, navigation }) {
 }
 
 const stylesCast = StyleSheet.create({
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    marginBottom: theme.space(1),
-  },
   sectionTitle: {
     fontFamily: fonts.title,
     fontSize: 26,
@@ -4991,6 +4975,13 @@ function ResultsScreen({ navigation, route }) {
   return (
     <GradientBackground>
       <SafeAreaView style={{ flex: 1 }}>
+        <HelpButton
+          onPress={() =>
+            openHelp(
+              tab === "Primary" ? GUIDANCE_CARD_CONTENT.primary : GUIDANCE_CARD_CONTENT.resulting
+            )
+          }
+        />
         <ScrollView
           contentContainerStyle={{
             paddingHorizontal: theme.space(2.5),
@@ -4999,15 +4990,6 @@ function ResultsScreen({ navigation, route }) {
           }}
         >
           <View style={stylesResults.headerRow}>
-            <HelpButton
-              onPress={() =>
-                openHelp(
-                  tab === "Primary"
-                    ? GUIDANCE_CARD_CONTENT.primary
-                    : GUIDANCE_CARD_CONTENT.resulting
-                )
-              }
-            />
             <Text style={stylesResults.sectionTitle}>Results</Text>
           </View>
           {question ? (
@@ -5076,7 +5058,9 @@ const stylesResults = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
+    position: "relative",
+    marginBottom: theme.space(0.5),
   },
   sectionTitle: {
     fontFamily: fonts.title,
@@ -5177,10 +5161,10 @@ function LibraryScreen() {
   return (
     <GradientBackground>
       <SafeAreaView style={{ flex: 1 }}>
+        <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.library)} />
         <View style={stylesLibrary.container}>
           <View style={stylesLibrary.content}>
             <View style={stylesLibrary.headerRow}>
-              <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.library)} />
               <View style={stylesLibrary.header}>
                 <Text style={stylesLibrary.title}>Library</Text>
                 <Text style={stylesLibrary.subtitle}>
@@ -5255,13 +5239,14 @@ const stylesLibrary = StyleSheet.create({
   },
   headerRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    columnGap: theme.space(1.25),
-    marginBottom: theme.space(1),
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.space(1.5),
   },
   header: {
     flex: 1,
     marginBottom: theme.space(3),
+    alignItems: "center",
   },
   searchBar: {
     flexDirection: "row",
@@ -5286,12 +5271,14 @@ const stylesLibrary = StyleSheet.create({
     fontSize: 26,
     color: palette.ink,
     marginBottom: 10,
+    textAlign: "center",
   },
   subtitle: {
     fontFamily: fonts.body,
     fontSize: 15,
     color: palette.inkMuted,
     lineHeight: 21,
+    textAlign: "center",
   },
   carouselWrapper: {
     flex: 1,
@@ -5422,9 +5409,9 @@ function JournalListScreen({ navigation, route }) {
   return (
     <GradientBackground>
       <SafeAreaView style={{ flex: 1 }}>
+        <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.journal)} />
         <View style={stylesJournal.container}>
           <View style={stylesJournal.headerRow}>
-            <HelpButton onPress={() => openHelp(GUIDANCE_CARD_CONTENT.journal)} />
             <Text style={stylesJournal.title}>Journal</Text>
           </View>
           <View style={stylesJournal.searchBar}>
@@ -5477,7 +5464,8 @@ const stylesJournal = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
+    marginBottom: theme.space(1),
   },
   title: {
     fontFamily: fonts.title,
@@ -6257,8 +6245,6 @@ function GuideTabsContent({ activeTab }) {
 
   if (activeTab === "History") return renderHistory();
   if (activeTab === "Glossary") return renderGlossary();
-  return renderGuidance();
-}
 
 function GuidanceModal({
   visible,
@@ -6271,9 +6257,14 @@ function GuidanceModal({
 }) {
   const { width, height } = useWindowDimensions();
   const scrollRef = useRef(null);
-  const pageWidth = width - theme.space(6);
+  const modalMaxHeight = Math.min(height * 0.8, 720);
+  const modalWidth = Math.min(width - theme.space(4), 780);
+  const pageWidth = modalWidth - theme.space(2);
   const hasCards = cards?.length > 0;
-  const secondaryMaxHeight = Math.min(Math.max(height * 0.55, 320), 560);
+  const secondaryMaxHeight = Math.min(
+    Math.max(height * 0.6, 360),
+    modalMaxHeight - theme.space(5)
+  );
 
   const scrollToIndex = (index) => {
     if (!scrollRef.current) return;
@@ -6303,7 +6294,7 @@ function GuidanceModal({
       >
         <Pressable style={stylesGuidance.backdrop} onPress={onClose}>
           <Pressable
-            style={stylesGuidance.cardShell}
+            style={[stylesGuidance.cardShell, { maxHeight: modalMaxHeight, width: modalWidth }]}
             onPress={(event) => event.stopPropagation()}
           >
             <View style={stylesGuidance.headerRow}>
@@ -6322,9 +6313,7 @@ function GuidanceModal({
                     onPress={() => setActiveTab(label)}
                     style={[stylesGuidance.tabBtn, active && stylesGuidance.tabBtnActive]}
                   >
-                    <Text
-                      style={[stylesGuidance.tabText, active && stylesGuidance.tabTextActive]}
-                    >
+                    <Text style={[stylesGuidance.tabText, active && stylesGuidance.tabTextActive]}>
                       {label}
                     </Text>
                   </Pressable>
@@ -6332,89 +6321,101 @@ function GuidanceModal({
               })}
             </View>
 
-            {activeTab === "Guidance" ? (
-              hasCards ? (
-                <>
-                  <ScrollView
-                    ref={scrollRef}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    onScroll={(event) => {
-                      const index = Math.round(
-                        event.nativeEvent.contentOffset.x / pageWidth
-                      );
-                      if (index !== pagerIndex) {
-                        setPagerIndex(index);
-                      }
-                    }}
-                    scrollEventThrottle={16}
-                    style={{ marginTop: theme.space(1) }}
-                  >
-                    {cards.map((card) => (
-                      <View
-                        key={card.key}
-                        style={[stylesGuidance.slide, { width: pageWidth }]}
-                      >
-                        <View style={stylesGuidance.card}>
-                          <ScrollView
-                            nestedScrollEnabled
-                            showsVerticalScrollIndicator={false}
-                            contentContainerStyle={stylesGuidance.cardContent}
+            <View style={stylesGuidance.bodyArea}>
+              {activeTab === "Guidance" ? (
+                hasCards ? (
+                  <>
+                    <ScrollView
+                      ref={scrollRef}
+                      horizontal
+                      pagingEnabled
+                      nestedScrollEnabled
+                      showsHorizontalScrollIndicator={false}
+                      onMomentumScrollEnd={(event) => {
+                        const index = Math.round(event.nativeEvent.contentOffset.x / pageWidth);
+                        if (index !== pagerIndex) {
+                          setPagerIndex(index);
+                        }
+                      }}
+                      scrollEventThrottle={16}
+                      style={[stylesGuidance.pager, { height: secondaryMaxHeight }]}
+                      contentContainerStyle={{ alignItems: "stretch" }}
+                    >
+                      {cards.map((card) => (
+                        <View key={card.key} style={[stylesGuidance.slide, { width: pageWidth }]}>
+                          <View
+                            style={[
+                              stylesGuidance.card,
+                              {
+                                maxHeight: secondaryMaxHeight,
+                                minHeight: secondaryMaxHeight * 0.7,
+                              },
+                            ]}
                           >
-                            <Text style={stylesGuidance.cardTitle}>{card.title}</Text>
-                            {card.paragraphs?.map((text, idx) => (
-                              <Text key={`${card.key}-${idx}`} style={stylesGuidance.cardBody}>
-                                {text}
-                              </Text>
-                            ))}
-                          </ScrollView>
+                            <ScrollView
+                              nestedScrollEnabled
+                              showsVerticalScrollIndicator
+                              scrollEventThrottle={16}
+                              style={stylesGuidance.cardScroll}
+                              contentContainerStyle={stylesGuidance.cardContent}
+                            >
+                              <Text style={stylesGuidance.cardTitle}>{card.title}</Text>
+                              {card.paragraphs?.map((text, idx) => (
+                                <Text key={`${card.key}-${idx}`} style={stylesGuidance.cardBody}>
+                                  {text}
+                                </Text>
+                              ))}
+                            </ScrollView>
+                          </View>
                         </View>
-                      </View>
-                    ))}
-                  </ScrollView>
+                      ))}
+                    </ScrollView>
 
-                  <View style={stylesGuidance.dots}>
-                    {cards.map((card, idx) => (
-                      <View
-                        key={`${card.key}-${idx}`}
-                        style={[
-                          stylesGuidance.dot,
-                          pagerIndex === idx && stylesGuidance.dotActive,
-                        ]}
-                      />
-                    ))}
+                    <View style={stylesGuidance.dots}>
+                      {cards.map((card, idx) => (
+                        <View
+                          key={`${card.key}-${idx}`}
+                          style={[
+                            stylesGuidance.dot,
+                            pagerIndex === idx && stylesGuidance.dotActive,
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <View style={stylesGuidance.emptyCard}>
+                    <Text style={stylesGuidance.cardBody}>
+                      No guidance is available yet. Try another tab.
+                    </Text>
                   </View>
-                </>
+                )
               ) : (
-                <View style={stylesGuidance.emptyCard}>
-                  <Text style={stylesGuidance.cardBody}>
-                    No guidance is available yet. Try another tab.
-                  </Text>
-                </View>
-              )
-            ) : (
-              <View
-                style={[
-                  stylesGuidance.secondaryShell,
-                  { maxHeight: secondaryMaxHeight, minHeight: secondaryMaxHeight * 0.8 },
-                ]}
-              >
-                <ScrollView
-                  style={[stylesGuidance.secondaryContent, { height: secondaryMaxHeight }]}
-                  contentContainerStyle={[
-                    stylesGuidance.secondaryContentContainer,
-                    { minHeight: secondaryMaxHeight * 0.9 },
+                <View
+                  style={[
+                    stylesGuidance.secondaryShell,
+                    {
+                      maxHeight: secondaryMaxHeight,
+                      minHeight: secondaryMaxHeight * 0.85,
+                    },
                   ]}
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator
-                  bounces
-                  scrollEventThrottle={16}
                 >
-                  <GuideTabsContent activeTab={activeTab} />
-                </ScrollView>
-              </View>
-            )}
+                  <ScrollView
+                    style={stylesGuidance.secondaryScroll}
+                    contentContainerStyle={[
+                      stylesGuidance.secondaryContentContainer,
+                      { paddingBottom: theme.space(2) },
+                    ]}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator
+                    bounces
+                    scrollEventThrottle={16}
+                  >
+                    <GuideTabsContent activeTab={activeTab} />
+                  </ScrollView>
+                </View>
+              )}
+            </View>
 
             {activeTab === "Guidance" && hasCards ? (
               <View style={stylesGuidance.controls}>
@@ -6506,6 +6507,8 @@ const stylesGuidance = StyleSheet.create({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
     elevation: 8,
+    alignSelf: "center",
+    width: "100%",
   },
   headerRow: {
     flexDirection: "row",
@@ -6542,6 +6545,13 @@ const stylesGuidance = StyleSheet.create({
   tabTextActive: {
     color: palette.white,
   },
+  bodyArea: {
+    marginTop: theme.space(1.25),
+    flex: 1,
+  },
+  pager: {
+    marginTop: theme.space(0.5),
+  },
   slide: {
     paddingVertical: theme.space(1.5),
     paddingHorizontal: theme.space(1),
@@ -6552,13 +6562,16 @@ const stylesGuidance = StyleSheet.create({
     borderColor: palette.border,
     padding: theme.space(1.75),
     backgroundColor: palette.card,
-    minHeight: 220,
-    maxHeight: 420,
+    minHeight: 240,
     shadowColor: palette.goldDeep,
     shadowOpacity: 0.12,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
+    overflow: "hidden",
+  },
+  cardScroll: {
+    flex: 1,
   },
   cardContent: {
     paddingBottom: theme.space(1),
@@ -6608,6 +6621,9 @@ const stylesGuidance = StyleSheet.create({
   secondaryContent: {
     marginTop: 0,
     flexGrow: 0,
+  },
+  secondaryScroll: {
+    flex: 1,
   },
   secondaryContentContainer: {
     paddingBottom: theme.space(2),
