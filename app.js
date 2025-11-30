@@ -6268,6 +6268,7 @@ function GuidanceModal({
     Math.max(height * 0.6, 360),
     modalMaxHeight - theme.space(5)
   );
+  const cardAreaHeight = Math.max(secondaryMaxHeight, 320);
 
   const scrollToIndex = (index) => {
     if (!scrollRef.current) return;
@@ -6324,55 +6325,64 @@ function GuidanceModal({
               })}
             </View>
 
-            <View style={stylesGuidance.bodyArea}>
+            <View style={[stylesGuidance.bodyArea, { maxHeight: cardAreaHeight }]}>
               {activeTab === "Guidance" ? (
                 hasCards ? (
                   <>
-                    <ScrollView
-                      ref={scrollRef}
-                      horizontal
-                      pagingEnabled
-                      nestedScrollEnabled
-                      showsHorizontalScrollIndicator={false}
-                      onMomentumScrollEnd={(event) => {
-                        const index = Math.round(event.nativeEvent.contentOffset.x / pageWidth);
-                        if (index !== pagerIndex) {
-                          setPagerIndex(index);
-                        }
-                      }}
-                      scrollEventThrottle={16}
-                      style={[stylesGuidance.pager, { height: secondaryMaxHeight }]}
-                      contentContainerStyle={{ alignItems: "stretch" }}
-                    >
-                      {cards.map((card) => (
-                        <View key={card.key} style={[stylesGuidance.slide, { width: pageWidth }]}>
-                          <View
-                            style={[
-                              stylesGuidance.card,
-                              {
-                                maxHeight: secondaryMaxHeight,
-                                minHeight: secondaryMaxHeight * 0.7,
-                              },
-                            ]}
-                          >
-                            <ScrollView
-                              nestedScrollEnabled
-                              showsVerticalScrollIndicator
-                              scrollEventThrottle={16}
-                              style={stylesGuidance.cardScroll}
-                              contentContainerStyle={stylesGuidance.cardContent}
+                    <View style={[stylesGuidance.pagerShell, { height: cardAreaHeight }]}>
+                      <ScrollView
+                        ref={scrollRef}
+                        horizontal
+                        pagingEnabled
+                        snapToInterval={pageWidth}
+                        decelerationRate="fast"
+                        nestedScrollEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onMomentumScrollEnd={(event) => {
+                          const index = Math.round(event.nativeEvent.contentOffset.x / pageWidth);
+                          if (index !== pagerIndex) {
+                            setPagerIndex(index);
+                          }
+                        }}
+                        scrollEventThrottle={16}
+                        style={[stylesGuidance.pager, { height: cardAreaHeight }]}
+                        contentContainerStyle={{ alignItems: "stretch" }}
+                        overScrollMode="always"
+                      >
+                        {cards.map((card) => (
+                          <View key={card.key} style={[stylesGuidance.slide, { width: pageWidth }]}>
+                            <View
+                              style={[
+                                stylesGuidance.card,
+                                {
+                                  height: cardAreaHeight - theme.space(0.5),
+                                },
+                              ]}
                             >
-                              <Text style={stylesGuidance.cardTitle}>{card.title}</Text>
-                              {card.paragraphs?.map((text, idx) => (
-                                <Text key={`${card.key}-${idx}`} style={stylesGuidance.cardBody}>
-                                  {text}
-                                </Text>
-                              ))}
-                            </ScrollView>
+                              <ScrollView
+                                nestedScrollEnabled
+                                showsVerticalScrollIndicator
+                                scrollEventThrottle={16}
+                                keyboardShouldPersistTaps="handled"
+                                style={stylesGuidance.cardScroll}
+                                contentContainerStyle={[
+                                  stylesGuidance.cardContent,
+                                  { paddingBottom: theme.space(2) },
+                                ]}
+                                overScrollMode="always"
+                              >
+                                <Text style={stylesGuidance.cardTitle}>{card.title}</Text>
+                                {card.paragraphs?.map((text, idx) => (
+                                  <Text key={`${card.key}-${idx}`} style={stylesGuidance.cardBody}>
+                                    {text}
+                                  </Text>
+                                ))}
+                              </ScrollView>
+                            </View>
                           </View>
-                        </View>
-                      ))}
-                    </ScrollView>
+                        ))}
+                      </ScrollView>
+                    </View>
 
                     <View style={stylesGuidance.dots}>
                       {cards.map((card, idx) => (
@@ -6398,13 +6408,14 @@ function GuidanceModal({
                   style={[
                     stylesGuidance.secondaryShell,
                     {
+                      height: cardAreaHeight,
                       maxHeight: secondaryMaxHeight,
                       minHeight: secondaryMaxHeight * 0.85,
                     },
                   ]}
                 >
                   <ScrollView
-                    style={stylesGuidance.secondaryScroll}
+                    style={[stylesGuidance.secondaryScroll, { height: cardAreaHeight }]}
                     contentContainerStyle={[
                       stylesGuidance.secondaryContentContainer,
                       { paddingBottom: theme.space(2) },
@@ -6413,6 +6424,8 @@ function GuidanceModal({
                     showsVerticalScrollIndicator
                     bounces
                     scrollEventThrottle={16}
+                    keyboardShouldPersistTaps="handled"
+                    overScrollMode="always"
                   >
                     <GuideTabsContent activeTab={activeTab} />
                   </ScrollView>
@@ -6512,6 +6525,8 @@ const stylesGuidance = StyleSheet.create({
     elevation: 8,
     alignSelf: "center",
     width: "100%",
+    flexShrink: 1,
+    overflow: "hidden",
   },
   headerRow: {
     flexDirection: "row",
@@ -6551,6 +6566,11 @@ const stylesGuidance = StyleSheet.create({
   bodyArea: {
     marginTop: theme.space(1.25),
     flex: 1,
+    flexShrink: 1,
+  },
+  pagerShell: {
+    marginTop: theme.space(0.5),
+    width: "100%",
   },
   pager: {
     marginTop: theme.space(0.5),
@@ -6638,6 +6658,7 @@ const stylesGuidance = StyleSheet.create({
     overflow: "hidden",
     alignSelf: "stretch",
     width: "100%",
+    flexShrink: 1,
   },
 });
 
